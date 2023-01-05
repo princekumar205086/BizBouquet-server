@@ -49,7 +49,7 @@ router.post('/register', (req, res) => {
                     res.status(400).send(error)
                 }
                 //send otp
-                sendOtpVerificaton(res._id, req.body.email);
+                sendOtpVerificaton(req.body.email);
 
             })
     } catch (error) {
@@ -57,11 +57,11 @@ router.post('/register', (req, res) => {
         res.status(400).send(error)
     }
 })
-
 // for otp verification to email
-const sendOtpVerificaton = async (_id, email) => {
+const sendOtpVerificaton = async (email) => {
     try {
         const otp = `${Math.floor(100000 + Math.random() * 900000)}`
+        //setting mail
         const settingEmail = {
             from: process.env.MY_EMAIL_ID,
             to: email,
@@ -71,8 +71,7 @@ const sendOtpVerificaton = async (_id, email) => {
         // encypting otp
         const saltRounds = 10;
         const hashedotp = await bcrypt.hash(otp, saltRounds)
-        const saveotp = new OtpVerificaton({
-            userId: _id,
+        const saveotp = await new OtpVerificaton({
             otp: hashedotp,
             email: email,
             createdAt: Date.now(),
@@ -82,6 +81,13 @@ const sendOtpVerificaton = async (_id, email) => {
         // triggering mail
         transporter.sendMail(settingEmail, (error, res) => {
             res ? console.log("Email sent successfully") : console.log(error);
+            // res.json({
+            //     status:'pending',
+            //     message: "verification otp email sent",
+            //     data: {
+            //         email,
+            //     },
+            // })
         })
     } catch (error) {
         console.log(error);
@@ -91,19 +97,20 @@ const sendOtpVerificaton = async (_id, email) => {
 
 router.post("/verifyotp", async (req, res) => {
     try {
-        let {email, otp} = req.body
+        let { email, otp } = req.body
         if (!email || !otp) {
             throw Error('Please input value')
         }
         else {
-            const userotp = await OtpVerificaton.findOne({ email:email })
-            if (!userotp) {
-                throw new Error('Account doesnot exits!')
+            const userotp = await OtpVerificaton.find({ email, })
+            if (userotp.length <= 0) {
+                throw new Error('Account doesnot exits or already verified !')
             }
             else {
-                const  expiresAt  = userotp[0]
-                const hashedotp = userotp[0][1]
+                const expiresAt = userotp[0]
+                const hashedotp = userotp[0].otp
                 if (expiresAt < Date.now()) {
+                    await OtpVerificaton.deleteMany({ email })
                     throw new Error('Code has expires, request new again!')
                 }
                 else {
@@ -113,9 +120,13 @@ router.post("/verifyotp", async (req, res) => {
                     }
                     else {
                         try {
-                            const verified = await Register.updateOne({ email: email }, { user_status: true })
+                            await Register.updateOne({ email: email }, { user_status: true })
                             await OtpVerificaton.deleteMany({ email })
-                            res.status(200).send(verified)
+                            res.json({
+                                status: 'verified',
+                                message: `user email verified successfully.`,
+                            })
+                            // res.status(200).send(verified)
                         } catch (error) {
                             const message = "Accont doest not exits!"
                             res.status(400).send(message)
@@ -134,14 +145,18 @@ router.post("/verifyotp", async (req, res) => {
 
 router.post("/resendotp", async (req, res) => {
     try {
-        let { userId, email } = req.body
-        if (!userId || !email) {
+        let { email } = req.body
+        if (!email) {
             throw Error('Please input value')
         }
         else {
             //deleting existing
-            await OtpVerificaton.deleteMany({ userId })
-            sendOtpVerificaton({ _id: userId, email }, res);
+            await OtpVerificaton.deleteMany({ email })
+            sendOtpVerificaton(email);
+            res.json({
+                status: 'Success',
+                message: 'otp resend'
+            })
         }
     } catch (error) {
         console.log(error);
@@ -189,7 +204,30 @@ router.delete('/register/:id', async (req, res) => {
         res.status(500).send(error)
     }
 })
+// search query
 
+router.get('/search/:key', async (req, res) => {
+    try {
+        const result = await Register.find(
+            { 
+                "$or":[
+                    {fullname: { $regex: req.params.key}} 
+                ]
+            }) 
+            res.status(200).send(result)
+    } catch (error) {
+        res.status(404).send({error: 'No data found'})
+    }
+})
+
+/* 
+1. auth from here
+2. login from here
+3. JWT implementation from here
+*/
+
+
+// login 
 
 router.post('/login', async (req, res) => {
     try {
@@ -199,27 +237,20 @@ router.post('/login', async (req, res) => {
         }
         else {
             const userlogin = await Register.findOne({ email: email })
-            let hashedpassword = ''
-            if (userlogin) {
-                hashedpassword = userlogin.password
-            }
-            else {
-                hashedpassword = ''
-            }
-            // matching password
-            const ismatch = await bcrypt.compare(password, hashedpassword)
+            const ismatch = await bcrypt.compare(password, userlogin.password)
             if (!ismatch) {
                 res.status(400).send({ error: "Invalid credentials" })
             }
             else {
                 res.status(200).send({ message: "Successful signin" })
             }
-            res.status(400).send({ error: "Invalid credentials" })
+            // res.status(400).send({ error: "Invalid credentials" })
         }
     } catch (error) {
         console.log(error);
     }
 })
+
 
 
 module.exports = router

@@ -8,7 +8,7 @@ const router = require('../routers/register')
 app.use(cors())
 
 //parsing json
-app.use(express.json());
+app.use(express.json())
 
 //giving permission for router
 app.use(router)

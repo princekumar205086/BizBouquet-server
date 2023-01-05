@@ -3,7 +3,6 @@ const mongoose = require("mongoose")
 
 //schema for otp verification
 const UserOtpVerification = new mongoose.Schema({
-    userId: String,
     otp: String,
     email:String,
     createdAt: Date,
