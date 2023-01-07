@@ -10,7 +10,8 @@ const bcrypt = require('bcrypt');
 const Register = require('../src/db/schema/regschema')
 // specifying otp verification model
 const OtpVerificaton = require('../src/db/schema/otpshema')
-
+// Add listing here
+const AddListing = require('../src/db/schema/addlistingSchema')
 // importing nodemailer to imlement email
 const nodemailer = require('nodemailer')
 
@@ -251,6 +252,31 @@ router.post('/login', async (req, res) => {
     }
 })
 
+// add listing api
 
+router.post('/addlisting', async(req, res)=>{
+    try {
+        const add = new AddListing(req.body);
+        await add.save()
+        res.status(201).send(add)
+    } catch (error) {
+        res.status(400).send(error)
+        console.log(error);
+    }
+})
 
+// serch business
+router.get('/searchlist/:key', async (req, res) => {
+    try {
+        const result = await AddListing.find(
+            { 
+                "$or":[
+                    {b_name: { $regex: req.params.key}} 
+                ]
+            }) 
+            res.status(200).send(result)
+    } catch (error) {
+        res.status(404).send({error: 'No data found'})
+    }
+})
 module.exports = router

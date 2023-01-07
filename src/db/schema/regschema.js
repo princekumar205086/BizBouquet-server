@@ -37,5 +37,5 @@ const regSchema = new mongoose.Schema({
 
 
 // register model
-const Register = new mongoose.model("User_registration", regSchema);
-module.exports = Register
+const AddListing = new mongoose.model("User_registration", regSchema);
+module.exports = AddListing
